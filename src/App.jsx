@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const tempMovieData = [
   {
@@ -50,9 +50,43 @@ const tempWatchedData = [
 const average = (arr) =>
   arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
 
+const KEY = "18ba938b";
+
 export default function App() {
-  const [movies, setMovies] = useState(tempMovieData);
-  const [watched, setWatched] = useState(tempWatchedData);
+  const [movies, setMovies] = useState([]);
+  const [watched, setWatched] = useState([]);
+  const [isLoading, setisLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+  const query = "interstellar";
+
+  useEffect(function () {
+    async function fetchMovies() {
+      try {
+        setisLoading(true);
+        const res = await fetch(
+          `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
+        );
+
+        if (!res.ok) {
+          throw new Error("Something went wrong fetching movies");
+        }
+        const data = await res.json();
+
+        if (data.Response === 'False') {
+          throw new Error(data.Error)
+        }
+
+        setMovies(data.Search);
+        setisLoading(false);
+      } catch (error) {
+        console.log(error.message);
+        setErrMsg(error.message);
+      } finally {
+        setisLoading(false)
+      }
+    }
+    fetchMovies();
+  }, []);
 
   return (
     <>
@@ -63,12 +97,15 @@ export default function App() {
 
       <Main>
         <Box>
-          <MoviesList movies={movies} />
-        </Box>
+          
+          {isLoading && <Loader/>}
+          {!isLoading && !errMsg && <MoviesList movies={movies} />}
+          {errMsg && <ErrorMessage errMsg={errMsg}/>}
+          </Box>
 
         <Box>
           <MoviesWatchedSummary watched={watched} />
-          <MoviesWatchedList watched={watched}/>
+          <MoviesWatchedList watched={watched} />
         </Box>
       </Main>
     </>
@@ -144,7 +181,7 @@ function MoviesList({ movies }) {
     <>
       <ul className="list">
         {movies?.map((movie) => (
-          <Movie movie={movie} />
+          <Movie movie={movie} key={movie.imdbID} />
         ))}
       </ul>
     </>
@@ -154,7 +191,7 @@ function MoviesList({ movies }) {
 function Movie({ movie }) {
   return (
     <>
-      <li key={movie.imdbID}>
+      <li>
         <img src={movie.Poster} alt={`${movie.Title} poster`} />
         <h3>{movie.Title}</h3>
         <div>
@@ -168,15 +205,12 @@ function Movie({ movie }) {
   );
 }
 
-function MoviesWatchedList({watched}) {
-  
-
+function MoviesWatchedList({ watched }) {
   return (
     <>
-
       <ul className="list">
         {watched.map((movie) => (
-          <WatchedMovie movie={movie} />
+          <WatchedMovie movie={movie} key={movie.imdbID} />
         ))}
       </ul>
     </>
@@ -235,6 +269,24 @@ function WatchedMovie({ movie }) {
           </p>
         </div>
       </li>
+    </>
+  );
+}
+
+function Loader() {
+  return (
+    <>
+      <p className="loader">Loading....</p>
+    </>
+  );
+}
+
+function ErrorMessage({errMsg}) {
+  return (
+    <>
+      <p className="error">
+        <span>❎</span> {errMsg}
+      </p>
     </>
   );
 }
